@@ -1,4 +1,4 @@
-FROM python:3.9-buster
+FROM python:3.9-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -8,7 +8,7 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# 🔍 verify ffprobe exists (IMPORTANT)
+# 🔍 Verify ffmpeg & ffprobe at build time
 RUN which ffprobe && ffprobe -version
 
 WORKDIR /usr/src/app
