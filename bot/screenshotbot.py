@@ -59,10 +59,11 @@ class ScreenShotBot(Client):
         self.broadcast_ids = {}
 
     # ----------------------------------------------------------------
-    # ✅ START — NUMERIC LOG_CHANNEL SAFE & FINAL
+    # ✅ SAFE START (NO CRASH, NO PEER ERROR)
     # ----------------------------------------------------------------
     async def start(self):
-        # --- FloodWait safe start ---
+
+        # FloodWait safe
         try:
             await super().start()
         except FloodWait as e:
@@ -70,35 +71,29 @@ class ScreenShotBot(Client):
             await asyncio.sleep(e.value + 5)
             await super().start()
 
-        if not Config.LOG_CHANNEL:
-            raise RuntimeError("LOG_CHANNEL is REQUIRED but not set")
-
-        # 🔥 IMPORTANT: build peer cache (numeric ID fix)
-        try:
-            async for _ in self.get_dialogs():
-                pass
-        except Exception:
-            pass
-
-        # 🔥 FINAL CHECK: send message to LOG_CHANNEL
-        try:
-            await self.send_message(
-                Config.LOG_CHANNEL,
-                "✅ Log channel connected successfully"
-            )
-        except Exception as e:
-            log.critical(f"Cannot write to LOG_CHANNEL: {e}")
-            raise RuntimeError(
-                "LOG_CHANNEL is required.\n"
-                "• Bot must be ADMIN\n"
-                "• Bot must have POST permission\n"
-                "• Bot must have seen the channel at least once"
-            )
-
+        # Start workers
         await self.process_pool.start()
 
         me = await self.get_me()
-        print(f"New session started for {me.first_name} (@{me.username})")
+        print(f"🤖 Bot started as {me.first_name} (@{me.username})")
+
+        # ---------------- LOG CHANNEL (SAFE MODE) ----------------
+        if Config.LOG_CHANNEL:
+            try:
+                # 🔥 BEST WAY: force update cache
+                await self.send_message(
+                    Config.LOG_CHANNEL,
+                    "🟢 Bot restarted & log channel linked"
+                )
+                print("✅ LOG_CHANNEL connected")
+
+            except Exception as e:
+                # ❗ NEVER crash bot for this
+                print("⚠️ LOG_CHANNEL not reachable yet")
+                print("⚠️ Reason:", e)
+                print("ℹ️ Send ONE message in the channel mentioning the bot")
+        else:
+            print("ℹ️ LOG_CHANNEL not set, skipping logs")
 
     async def stop(self):
         await self.process_pool.stop()
@@ -141,7 +136,7 @@ class ScreenShotBot(Client):
                     chat_id=admin_id,
                     text=(
                         "📢 Broadcast started\n\n"
-                        "Use the buttons to check progress or cancel."
+                        "Use buttons to check progress or cancel."
                     ),
                     reply_to_message_id=getattr(
                         broadcast_message, "id", None
