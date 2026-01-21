@@ -12,6 +12,19 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from bot.config import Config
 from bot.workers import Worker
 from bot.utils.broadcast import Broadcast
+from threading import Thread
+from flask import Flask
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is alive", 200
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+Thread(target=run).start()
 
 
 log = logging.getLogger(__name__)
