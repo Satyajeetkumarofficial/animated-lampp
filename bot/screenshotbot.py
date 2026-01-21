@@ -9,8 +9,7 @@ from threading import Thread
 
 from pyrogram import Client
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-from flask import Flask, abort
+from flask import Flask
 
 from bot.config import Config
 from bot.workers import Worker
@@ -59,29 +58,25 @@ class ScreenShotBot(Client):
         self.broadcast_ids = {}
 
     # ----------------------------------------------------------------
-    # ✅ START — LOG_CHANNEL HARD RESOLVE (REQUIRED)
+    # ✅ START — LOG_CHANNEL HARD REQUIREMENT (CORRECT WAY)
     # ----------------------------------------------------------------
     async def start(self):
         await super().start()
 
-        # 🔥 HARD REQUIREMENT: LOG_CHANNEL MUST RESOLVE
         if not Config.LOG_CHANNEL:
             raise RuntimeError("LOG_CHANNEL is REQUIRED but not set")
 
         try:
-            # Step 1: Direct resolve
-            await self.get_chat(Config.LOG_CHANNEL)
-
-            # Step 2: Force peer cache via dialogs
-            async for dialog in self.get_dialogs():
-                if dialog.chat and dialog.chat.id == Config.LOG_CHANNEL:
-                    break
-
-            print("LOG_CHANNEL resolved & cached successfully")
-
+            # 🔥 ONLY CORRECT WAY — send a message
+            await self.send_message(
+                Config.LOG_CHANNEL,
+                "✅ Log channel connected successfully"
+            )
         except Exception as e:
-            print(f"FATAL: Cannot access LOG_CHANNEL: {e}")
-            raise RuntimeError("LOG_CHANNEL is required but not accessible")
+            log.critical(f"Cannot write to LOG_CHANNEL: {e}")
+            raise RuntimeError(
+                "LOG_CHANNEL is required, bot must be ADMIN and able to send messages"
+            )
 
         await self.process_pool.start()
 
