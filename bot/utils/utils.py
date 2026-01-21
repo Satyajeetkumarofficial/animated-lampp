@@ -73,10 +73,14 @@ class Utilities:
         return thumb_file
 
     @staticmethod
-    def generate_stream_link(media_msg):
-        file_id = media_msg.message_id
-        chat_id = media_msg.chat.id
-        return urljoin(Config.HOST, f"file/{chat_id}/{file_id}")
+def generate_stream_link(media_msg):
+    # Pyrogram v2 uses .id, v1 used .message_id
+    msg_id = getattr(media_msg, "id", None) or getattr(media_msg, "message_id", None)
+    if not msg_id:
+        raise ValueError("Unable to resolve message id")
+
+    chat_id = str(media_msg.chat.id).replace("-100", "")
+    return urljoin(Config.HOST, f"file/{chat_id}/{msg_id}")
 
     @staticmethod
     async def get_media_info(file_link):
