@@ -9,6 +9,7 @@ from threading import Thread
 
 from pyrogram import Client
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.errors import FloodWait
 from flask import Flask
 
 from bot.config import Config
@@ -44,7 +45,7 @@ log = logging.getLogger(__name__)
 class ScreenShotBot(Client):
     def __init__(self):
         super().__init__(
-            Config.SESSION_NAME,
+            name=Config.SESSION_NAME,
             api_id=Config.API_ID,
             api_hash=Config.API_HASH,
             bot_token=Config.BOT_TOKEN,
@@ -58,16 +59,29 @@ class ScreenShotBot(Client):
         self.broadcast_ids = {}
 
     # ----------------------------------------------------------------
-    # ✅ START — LOG_CHANNEL HARD REQUIREMENT (CORRECT WAY)
+    # ✅ START — NUMERIC LOG_CHANNEL SAFE & FINAL
     # ----------------------------------------------------------------
     async def start(self):
-        await super().start()
+        # --- FloodWait safe start ---
+        try:
+            await super().start()
+        except FloodWait as e:
+            log.warning(f"FloodWait on start: sleeping {e.value}s")
+            await asyncio.sleep(e.value + 5)
+            await super().start()
 
         if not Config.LOG_CHANNEL:
             raise RuntimeError("LOG_CHANNEL is REQUIRED but not set")
 
+        # 🔥 IMPORTANT: build peer cache (numeric ID fix)
         try:
-            # 🔥 ONLY CORRECT WAY — send a message
+            async for _ in self.get_dialogs():
+                pass
+        except Exception:
+            pass
+
+        # 🔥 FINAL CHECK: send message to LOG_CHANNEL
+        try:
             await self.send_message(
                 Config.LOG_CHANNEL,
                 "✅ Log channel connected successfully"
@@ -75,13 +89,16 @@ class ScreenShotBot(Client):
         except Exception as e:
             log.critical(f"Cannot write to LOG_CHANNEL: {e}")
             raise RuntimeError(
-                "LOG_CHANNEL is required, bot must be ADMIN and able to send messages"
+                "LOG_CHANNEL is required.\n"
+                "• Bot must be ADMIN\n"
+                "• Bot must have POST permission\n"
+                "• Bot must have seen the channel at least once"
             )
 
         await self.process_pool.start()
 
         me = await self.get_me()
-        print(f"New session started for {me.first_name} ({me.username})")
+        print(f"New session started for {me.first_name} (@{me.username})")
 
     async def stop(self):
         await self.process_pool.stop()
@@ -123,7 +140,7 @@ class ScreenShotBot(Client):
                 reply_message = await self.send_message(
                     chat_id=admin_id,
                     text=(
-                        "Broadcast started.\n\n"
+                        "📢 Broadcast started\n\n"
                         "Use the buttons to check progress or cancel."
                     ),
                     reply_to_message_id=getattr(
@@ -146,7 +163,7 @@ class ScreenShotBot(Client):
                 )
 
                 await broadcast_handler.start()
-                await reply_message.edit_text("Broadcast completed ✅")
+                await reply_message.edit_text("✅ Broadcast completed")
 
         except Exception:
             log.error("Broadcast error", exc_info=True)
