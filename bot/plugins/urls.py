@@ -3,50 +3,70 @@ import datetime
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from ..utils import Utilities
-from ..screenshotbot import ScreenShotBot
-from ..config import Config
+from bot.utils import Utilities
+from bot.screenshotbot import ScreenShotBot
+from bot.config import Config
 
 
 @ScreenShotBot.on_message(
-    filters.private
-    & (filters.text | filters.media)
+    filters.private & (filters.text | filters.media)
 )
-async def _(c, m):
+async def url_handler(client, message):
 
-    if m.media:
-        if not Utilities.is_valid_file(m):
+    # ---------- VALIDATION ----------
+    if message.media:
+        if not Utilities.is_valid_file(message):
             return
     else:
-        if not Utilities.is_url(m.text):
+        if not Utilities.is_url(message.text):
             return
 
-    snt = await m.reply_text(
-        "Hi there, Please wait while I'm getting everything ready to process your request!",
-        quote=True,
+    # ---------- PROCESS MESSAGE ----------
+    status = await message.reply_text(
+        "⏳ Please wait, processing your request...",
+        quote=True
     )
 
-    if m.media:
-        file_link = Utilities.generate_stream_link(m)
+    # ---------- GET FILE / URL ----------
+    if message.media:
+        file_link = Utilities.generate_stream_link(message)
     else:
-        file_link = m.text
+        file_link = message.text
 
+    # ---------- GET DURATION ----------
     duration = await Utilities.get_duration(file_link)
+
     if isinstance(duration, str):
-        try:
-    log = await m.forward(Config.LOG_CHANNEL)
-    await log.reply_text(duration, quote=True)
-except Exception as e:
-    # ❗ Log channel error should NEVER break the bot
-    print("LOG_CHANNEL forward failed:", e)
+        # ❗ duration error (string = error message)
+        if Config.LOG_CHANNEL:
+            try:
+                await client.send_message(
+                    Config.LOG_CHANNEL,
+                    f"⚠️ Media Error\n\n{duration}"
+                )
+            except Exception:
+                pass
+
+        await status.edit_text("❌ Failed to process this file.")
         return
 
-    btns = Utilities.gen_ik_buttons()
+    # ---------- BUTTONS ----------
+    buttons = Utilities.gen_ik_buttons()
 
     if duration >= 600:
-        btns.append([InlineKeyboardButton("Generate Sample Video!", "smpl")])
+        buttons.append([
+            InlineKeyboardButton(
+                "🎞 Generate Sample Video",
+                callback_data="smpl"
+            )
+        ])
 
-    await snt.edit_text(
-        text=f"Choose one of the options.\n\nTotal duration: `{datetime.timedelta(seconds=duration)}` (`{duration}s`)",
-        reply_markup=InlineKeyboardMarkup(btns),
+    # ---------- FINAL MESSAGE ----------
+    await status.edit_text(
+        text=(
+            "✅ Choose an option below:\n\n"
+            f"⏱ Duration: `{datetime.timedelta(seconds=duration)}` "
+            f"(`{duration}s`)"
+        ),
+        reply_markup=InlineKeyboardMarkup(buttons)
     )
