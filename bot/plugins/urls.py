@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -8,6 +9,9 @@ from ..screenshotbot import ScreenShotBot
 from ..config import Config
 
 
+log = logging.getLogger(__name__)
+
+
 @ScreenShotBot.on_message(
     filters.private
     & (filters.text | filters.media)
@@ -15,6 +19,7 @@ from ..config import Config
 )
 async def _(c, m):
 
+    # 🔍 Validate input
     if m.media:
         if not Utilities.is_valid_file(m):
             return
@@ -27,24 +32,40 @@ async def _(c, m):
         quote=True,
     )
 
+    # 🔗 Build file link
     if m.media:
         file_link = Utilities.generate_stream_link(m)
     else:
         file_link = m.text
 
+    # ⏱ Get duration
     duration = await Utilities.get_duration(file_link)
+
+    # ❌ Error handling (NO forward, SAFE logging)
     if isinstance(duration, str):
         await snt.edit_text("😟 Sorry! I cannot open the file.")
-        log = await m.forward(Config.LOG_CHANNEL)
-        await log.reply_text(duration, True)
+
+        try:
+            if Config.LOG_CHANNEL:
+                await c.send_message(
+                    Config.LOG_CHANNEL,
+                    f"⚠️ Failed to process file\n\n{duration}"
+                )
+        except Exception as e:
+            log.error(f"LOG_CHANNEL error: {e}")
+
         return
 
+    # 🎛 Buttons
     btns = Utilities.gen_ik_buttons()
 
     if duration >= 600:
         btns.append([InlineKeyboardButton("Generate Sample Video!", "smpl")])
 
     await snt.edit_text(
-        text=f"Choose one of the options.\n\nTotal duration: `{datetime.timedelta(seconds=duration)}` (`{duration}s`)",
+        text=(
+            "Choose one of the options.\n\n"
+            f"Total duration: `{datetime.timedelta(seconds=duration)}` (`{duration}s`)"
+        ),
         reply_markup=InlineKeyboardMarkup(btns),
     )
