@@ -59,11 +59,11 @@ class ScreenShotBot(Client):
         self.broadcast_ids = {}
 
     # ----------------------------------------------------------------
-    # ✅ SAFE START (NO CRASH, NO PEER ERROR)
+    # ✅ SAFE START + LOG CHANNEL MESSAGE
     # ----------------------------------------------------------------
     async def start(self):
 
-        # FloodWait safe
+        # FloodWait safe start
         try:
             await super().start()
         except FloodWait as e:
@@ -77,21 +77,25 @@ class ScreenShotBot(Client):
         me = await self.get_me()
         print(f"🤖 Bot started as {me.first_name} (@{me.username})")
 
+        # 🔥 Small delay so Telegram peer cache is ready
+        await asyncio.sleep(3)
+
         # ---------------- LOG CHANNEL (SAFE MODE) ----------------
         if Config.LOG_CHANNEL:
             try:
-                # 🔥 BEST WAY: force update cache
                 await self.send_message(
                     Config.LOG_CHANNEL,
-                    "🟢 Bot restarted & log channel linked"
+                    "🔄 **Bot Restarted Successfully**\n\n"
+                    f"🤖 Bot: @{me.username}\n"
+                    "🟢 Status: Online\n"
+                    "🚀 Reason: Deploy / Restart"
                 )
-                print("✅ LOG_CHANNEL connected")
+                print("✅ LOG_CHANNEL restart message sent")
 
             except Exception as e:
-                # ❗ NEVER crash bot for this
-                print("⚠️ LOG_CHANNEL not reachable yet")
+                # ❗ Bot kabhi crash nahi karega
+                print("⚠️ LOG_CHANNEL not reachable")
                 print("⚠️ Reason:", e)
-                print("ℹ️ Send ONE message in the channel mentioning the bot")
         else:
             print("ℹ️ LOG_CHANNEL not set, skipping logs")
 
