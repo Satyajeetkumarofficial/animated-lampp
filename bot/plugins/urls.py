@@ -32,31 +32,21 @@ async def _(c, m):
         file_link = m.text
 
     duration = await Utilities.get_duration(file_link)
-
-    # ❗ MEDIA ERROR CASE
     if isinstance(duration, str):
-        if Config.LOG_CHANNEL:
-            try:
-                await c.send_message(
-                    Config.LOG_CHANNEL,
-                    f"⚠️ Media error\n\n{duration}"
-                )
-            except Exception:
-                pass
+        try:
+    log = await m.forward(Config.LOG_CHANNEL)
+    await log.reply_text(duration, quote=True)
+except Exception as e:
+    # ❗ Log channel error should NEVER break the bot
+    print("LOG_CHANNEL forward failed:", e)
         return
 
     btns = Utilities.gen_ik_buttons()
 
     if duration >= 600:
-        btns.append(
-            [InlineKeyboardButton("Generate Sample Video!", "smpl")]
-        )
+        btns.append([InlineKeyboardButton("Generate Sample Video!", "smpl")])
 
     await snt.edit_text(
-        text=(
-            "Choose one of the options.\n\n"
-            f"Total duration: `{datetime.timedelta(seconds=duration)}` "
-            f"(`{duration}s`)"
-        ),
+        text=f"Choose one of the options.\n\nTotal duration: `{datetime.timedelta(seconds=duration)}` (`{duration}s`)",
         reply_markup=InlineKeyboardMarkup(btns),
     )
