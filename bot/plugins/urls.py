@@ -33,9 +33,13 @@ async def _(c, m):
 
     duration = await Utilities.get_duration(file_link)
     if isinstance(duration, str):
-        await snt.edit_text("😟 Sorry! I cannot open the file.")
-        log = await m.forward(Config.LOG_CHANNEL)
-        await log.reply_text(duration, True)
+        try:
+    await client.send_message(
+        Config.LOG_CHANNEL,
+        f"⚠️ Media error\n\n{duration}"
+    )
+except Exception:
+    pass
         return
 
     btns = Utilities.gen_ik_buttons()
