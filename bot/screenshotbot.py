@@ -18,7 +18,7 @@ from bot.utils.broadcast import Broadcast
 
 
 # -------------------------------------------------------------------
-# 🌐 Flask app (Health check + placeholder file route)
+# 🌐 Flask app (Health check only)
 # -------------------------------------------------------------------
 
 app = Flask(__name__)
@@ -26,13 +26,6 @@ app = Flask(__name__)
 @app.route("/")
 def home():
     return "Bot is alive", 200
-
-
-@app.route("/file/<chat_id>/<msg_id>")
-def file_route(chat_id, msg_id):
-    # Placeholder route (no 404 now)
-    # Actual Telegram file streaming can be added later
-    return abort(501, "File streaming not implemented yet")
 
 
 def run_flask():
@@ -65,19 +58,30 @@ class ScreenShotBot(Client):
         )
         self.broadcast_ids = {}
 
-    # ---------------------------------------------------------------
-    # ✅ START (LOG_CHANNEL preload added)
-    # ---------------------------------------------------------------
+    # ----------------------------------------------------------------
+    # ✅ START — LOG_CHANNEL HARD RESOLVE (REQUIRED)
+    # ----------------------------------------------------------------
     async def start(self):
         await super().start()
 
-        # 🔥 Preload LOG_CHANNEL to avoid "Peer id invalid"
+        # 🔥 HARD REQUIREMENT: LOG_CHANNEL MUST RESOLVE
+        if not Config.LOG_CHANNEL:
+            raise RuntimeError("LOG_CHANNEL is REQUIRED but not set")
+
         try:
-            if Config.LOG_CHANNEL:
-                chat = await self.get_chat(Config.LOG_CHANNEL)
-                print(f"LOG_CHANNEL preloaded: {chat.title}")
+            # Step 1: Direct resolve
+            await self.get_chat(Config.LOG_CHANNEL)
+
+            # Step 2: Force peer cache via dialogs
+            async for dialog in self.get_dialogs():
+                if dialog.chat and dialog.chat.id == Config.LOG_CHANNEL:
+                    break
+
+            print("LOG_CHANNEL resolved & cached successfully")
+
         except Exception as e:
-            print(f"LOG_CHANNEL preload failed: {e}")
+            print(f"FATAL: Cannot access LOG_CHANNEL: {e}")
+            raise RuntimeError("LOG_CHANNEL is required but not accessible")
 
         await self.process_pool.start()
 
@@ -89,9 +93,9 @@ class ScreenShotBot(Client):
         await super().stop()
         print("Session stopped. Bye!!")
 
-    # ---------------------------------------------------------------
+    # ----------------------------------------------------------------
     # 📢 Broadcast helpers
-    # ---------------------------------------------------------------
+    # ----------------------------------------------------------------
     @contextmanager
     def track_broadcast(self, handler):
         broadcast_id = ""
@@ -149,5 +153,5 @@ class ScreenShotBot(Client):
                 await broadcast_handler.start()
                 await reply_message.edit_text("Broadcast completed ✅")
 
-        except Exception as e:
+        except Exception:
             log.error("Broadcast error", exc_info=True)
