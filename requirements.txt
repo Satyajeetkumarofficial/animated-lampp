@@ -4,3 +4,4 @@ motor
 dnspython
 async-timeout
 aiohttp==3.8.6
+flask
